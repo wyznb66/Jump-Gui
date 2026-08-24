@@ -1,0 +1,471 @@
+-- 手机可拖动跳跃UI - 固定跳跃键 + 暴力区GUI
+local player = game.Players.LocalPlayer
+local userInputService = game:GetService("UserInputService")
+local tweenService = game:GetService("TweenService")
+
+-- ========== 配置 ==========
+local CONFIG = {
+    JumpKeyFixed = true,  -- 跳跃键固定不动
+    NoclipEnabled = false, -- 穿墙开关
+}
+
+-- ========== 创建主GUI（暴力区跳跃） ==========
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "ViolenceJumpGUI"
+screenGui.ResetOnSpawn = false
+screenGui.Parent = player.PlayerGui
+
+-- ========== 1. 固定跳跃按钮（不可拖动） ==========
+local jumpButton = Instance.new("Frame")
+jumpButton.Name = "JumpButton"
+jumpButton.Size = UDim2.new(0, 80, 0, 80)
+jumpButton.Position = UDim2.new(0.85, -40, 0.5, -40)  -- 右侧固定
+jumpButton.BackgroundColor3 = Color3.fromRGB(30, 144, 255)
+jumpButton.BackgroundTransparency = 0.2
+jumpButton.BorderSizePixel = 0
+jumpButton.ClipsDescendants = true
+jumpButton.Parent = screenGui
+
+-- 圆角
+local jumpCorner = Instance.new("UICorner")
+jumpCorner.CornerRadius = UDim.new(1, 0)
+jumpCorner.Parent = jumpButton
+
+-- 按钮文字
+local jumpLabel = Instance.new("TextLabel")
+jumpLabel.Size = UDim2.new(1, 0, 1, 0)
+jumpLabel.BackgroundTransparency = 1
+jumpLabel.Text = "⬆"
+jumpLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+jumpLabel.TextSize = 35
+jumpLabel.Font = Enum.Font.SourceSansBold
+jumpLabel.Parent = jumpButton
+
+-- 跳跃按钮点击效果（无拖动）
+jumpButton.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.Touch then
+        jumpButton.BackgroundTransparency = 0.1
+        jumpButton.Size = UDim2.new(0, 70, 0, 70)
+        task.wait(0.05)
+        performJump()
+    end
+end)
+
+jumpButton.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.Touch then
+        jumpButton.BackgroundTransparency = 0.2
+        jumpButton.Size = UDim2.new(0, 80, 0, 80)
+    end
+end)
+
+-- ========== 跳跃功能 ==========
+function performJump()
+    local character = player.Character
+    if not character then return end
+    
+    local humanoid = character:FindFirstChild("Humanoid")
+    local rootPart = character:FindFirstChild("HumanoidRootPart")
+    
+    if not humanoid or not rootPart then return end
+    
+    if humanoid.FloorMaterial ~= Enum.Material.Air then
+        pcall(function()
+            humanoid:SetStateEnabled(Enum.HumanoidStateType.Jumping, true)
+            humanoid.Jump = true
+        end)
+        
+        task.wait(0.05)
+        if humanoid.FloorMaterial ~= Enum.Material.Air then
+            rootPart.Velocity = Vector3.new(rootPart.Velocity.X, 55, rootPart.Velocity.Z)
+        end
+        
+        -- 波纹动画
+        local ripple = Instance.new("Frame")
+        ripple.Size = UDim2.new(0, 0, 0, 0)
+        ripple.Position = UDim2.new(0.5, 0, 0.5, 0)
+        ripple.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+        ripple.BackgroundTransparency = 0.8
+        ripple.BorderSizePixel = 0
+        ripple.AnchorPoint = Vector2.new(0.5, 0.5)
+        ripple.Parent = jumpButton
+        
+        local rippleCorner = Instance.new("UICorner")
+        rippleCorner.CornerRadius = UDim.new(1, 0)
+        rippleCorner.Parent = ripple
+        
+        local tween = tweenService:Create(
+            ripple,
+            TweenInfo.new(0.4, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+            {Size = UDim2.new(2, 0, 2, 0), BackgroundTransparency = 1}
+        )
+        tween:Play()
+        tween.Completed:Connect(function()
+            ripple:Destroy()
+        end)
+    end
+end
+
+-- 键盘空格跳跃
+userInputService.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+    if input.KeyCode == Enum.KeyCode.Space then
+        performJump()
+    end
+end)
+
+-- ========== 2. 暴力区GUI（可拖动/缩放/关闭） ==========
+local guiFrame = Instance.new("Frame")
+guiFrame.Name = "ViolenceFrame"
+guiFrame.Size = UDim2.new(0, 220, 0, 150)
+guiFrame.Position = UDim2.new(0.05, 0, 0.2, 0)
+guiFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
+guiFrame.BackgroundTransparency = 0.15
+guiFrame.BorderSizePixel = 0
+guiFrame.ClipsDescendants = true
+guiFrame.Parent = screenGui
+
+-- GUI背景圆角
+local guiCorner = Instance.new("UICorner")
+guiCorner.CornerRadius = UDim.new(0, 12)
+guiCorner.Parent = guiFrame
+
+-- 标题栏（可拖动）
+local titleBar = Instance.new("Frame")
+titleBar.Name = "TitleBar"
+titleBar.Size = UDim2.new(1, 0, 0, 30)
+titleBar.BackgroundColor3 = Color3.fromRGB(40, 40, 60)
+titleBar.BackgroundTransparency = 0.3
+titleBar.BorderSizePixel = 0
+titleBar.Parent = guiFrame
+
+local titleCorner = Instance.new("UICorner")
+titleCorner.CornerRadius = UDim.new(0, 12)
+titleCorner.Parent = titleBar
+
+-- 标题文字
+local titleLabel = Instance.new("TextLabel")
+titleLabel.Size = UDim2.new(1, -60, 1, 0)
+titleLabel.Position = UDim2.new(0, 10, 0, 0)
+titleLabel.BackgroundTransparency = 1
+titleLabel.Text = "⚡ 暴力区跳跃"
+titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+titleLabel.TextSize = 16
+titleLabel.Font = Enum.Font.SourceSansBold
+titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+titleLabel.Parent = titleBar
+
+-- 关闭按钮
+local closeBtn = Instance.new("TextButton")
+closeBtn.Name = "CloseBtn"
+closeBtn.Size = UDim2.new(0, 30, 1, -6)
+closeBtn.Position = UDim2.new(1, -35, 0, 3)
+closeBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+closeBtn.BackgroundTransparency = 0.3
+closeBtn.BorderSizePixel = 0
+closeBtn.Text = "✕"
+closeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+closeBtn.TextSize = 18
+closeBtn.Font = Enum.Font.SourceSansBold
+closeBtn.Parent = titleBar
+
+local closeCorner = Instance.new("UICorner")
+closeCorner.CornerRadius = UDim.new(0, 6)
+closeCorner.Parent = closeBtn
+
+closeBtn.MouseButton1Click:Connect(function()
+    guiFrame.Visible = not guiFrame.Visible
+end)
+
+-- ========== GUI拖动功能 ==========
+local dragData = {
+    dragging = false,
+    dragStart = nil,
+    startPos = nil,
+}
+
+titleBar.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
+        dragData.dragging = true
+        dragData.dragStart = input.Position
+        dragData.startPos = guiFrame.Position
+    end
+end)
+
+titleBar.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
+        dragData.dragging = false
+    end
+end)
+
+titleBar.InputChanged:Connect(function(input)
+    if dragData.dragging and (input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseMovement) then
+        local delta = input.Position - dragData.dragStart
+        guiFrame.Position = UDim2.new(
+            dragData.startPos.X.Scale,
+            dragData.startPos.X.Offset + delta.X,
+            dragData.startPos.Y.Scale,
+            dragData.startPos.Y.Offset + delta.Y
+        )
+    end
+end)
+
+-- ========== 缩放功能（右下角） ==========
+local resizeHandle = Instance.new("Frame")
+resizeHandle.Name = "ResizeHandle"
+resizeHandle.Size = UDim2.new(0, 20, 0, 20)
+resizeHandle.Position = UDim2.new(1, -20, 1, -20)
+resizeHandle.BackgroundColor3 = Color3.fromRGB(100, 100, 150)
+resizeHandle.BackgroundTransparency = 0.4
+resizeHandle.BorderSizePixel = 0
+resizeHandle.Parent = guiFrame
+
+local resizeCorner = Instance.new("UICorner")
+resizeCorner.CornerRadius = UDim.new(0, 4)
+resizeCorner.Parent = resizeHandle
+
+-- 缩放三角图标
+local resizeIcon = Instance.new("TextLabel")
+resizeIcon.Size = UDim2.new(1, 0, 1, 0)
+resizeIcon.BackgroundTransparency = 1
+resizeIcon.Text = "↘"
+resizeIcon.TextColor3 = Color3.fromRGB(255, 255, 255)
+resizeIcon.TextSize = 14
+resizeIcon.Font = Enum.Font.SourceSansBold
+resizeIcon.Parent = resizeHandle
+
+local resizeData = {
+    resizing = false,
+    startPos = nil,
+    startSize = nil,
+    startMouse = nil,
+}
+
+resizeHandle.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
+        resizeData.resizing = true
+        resizeData.startPos = guiFrame.Position
+        resizeData.startSize = guiFrame.Size
+        resizeData.startMouse = input.Position
+    end
+end)
+
+resizeHandle.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
+        resizeData.resizing = false
+    end
+end)
+
+resizeHandle.InputChanged:Connect(function(input)
+    if resizeData.resizing and (input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseMovement) then
+        local delta = input.Position - resizeData.startMouse
+        local newWidth = math.max(150, resizeData.startSize.X.Offset + delta.X)
+        local newHeight = math.max(100, resizeData.startSize.Y.Offset + delta.Y)
+        guiFrame.Size = UDim2.new(0, newWidth, 0, newHeight)
+    end
+end)
+
+-- ========== GUI内容（功能开关） ==========
+local contentFrame = Instance.new("Frame")
+contentFrame.Name = "Content"
+contentFrame.Size = UDim2.new(1, -20, 1, -40)
+contentFrame.Position = UDim2.new(0, 10, 0, 35)
+contentFrame.BackgroundTransparency = 1
+contentFrame.Parent = guiFrame
+
+-- 功能1：拖动跳跃键
+local toggle1Label = Instance.new("TextLabel")
+toggle1Label.Size = UDim2.new(0, 120, 0, 25)
+toggle1Label.Position = UDim2.new(0, 0, 0, 0)
+toggle1Label.BackgroundTransparency = 1
+toggle1Label.Text = "🔓 拖动跳跃键"
+toggle1Label.TextColor3 = Color3.fromRGB(220, 220, 220)
+toggle1Label.TextSize = 14
+toggle1Label.Font = Enum.Font.SourceSans
+toggle1Label.TextXAlignment = Enum.TextXAlignment.Left
+toggle1Label.Parent = contentFrame
+
+local toggle1Btn = Instance.new("TextButton")
+toggle1Btn.Name = "Toggle1"
+toggle1Btn.Size = UDim2.new(0, 50, 0, 25)
+toggle1Btn.Position = UDim2.new(1, -60, 0, 0)
+toggle1Btn.BackgroundColor3 = Color3.fromRGB(60, 60, 80)
+toggle1Btn.BorderSizePixel = 0
+toggle1Btn.Text = "关闭"
+toggle1Btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+toggle1Btn.TextSize = 13
+toggle1Btn.Font = Enum.Font.SourceSans
+toggle1Btn.Parent = contentFrame
+
+local toggle1Corner = Instance.new("UICorner")
+toggle1Corner.CornerRadius = UDim.new(0, 4)
+toggle1Corner.Parent = toggle1Btn
+
+local toggle1State = false  -- 默认关闭（跳跃键固定）
+
+toggle1Btn.MouseButton1Click:Connect(function()
+    toggle1State = not toggle1State
+    toggle1Btn.Text = toggle1State and "开启" or "关闭"
+    toggle1Btn.BackgroundColor3 = toggle1State and Color3.fromRGB(50, 180, 50) or Color3.fromRGB(60, 60, 80)
+    
+    -- 切换跳跃键拖动状态
+    CONFIG.JumpKeyFixed = not toggle1State
+    if CONFIG.JumpKeyFixed then
+        -- 固定模式
+        jumpButton.Position = UDim2.new(0.85, -40, 0.5, -40)
+        jumpButton.BackgroundColor3 = Color3.fromRGB(30, 144, 255)
+    else
+        -- 可拖动模式
+        jumpButton.BackgroundColor3 = Color3.fromRGB(255, 180, 50)
+        -- 添加拖动功能（重新启用）
+        enableJumpDrag()
+    end
+end)
+
+-- 功能2：穿墙开关
+local toggle2Label = Instance.new("TextLabel")
+toggle2Label.Size = UDim2.new(0, 120, 0, 25)
+toggle2Label.Position = UDim2.new(0, 0, 0, 35)
+toggle2Label.BackgroundTransparency = 1
+toggle2Label.Text = "🧱 穿墙模式"
+toggle2Label.TextColor3 = Color3.fromRGB(220, 220, 220)
+toggle2Label.TextSize = 14
+toggle2Label.Font = Enum.Font.SourceSans
+toggle2Label.TextXAlignment = Enum.TextXAlignment.Left
+toggle2Label.Parent = contentFrame
+
+local toggle2Btn = Instance.new("TextButton")
+toggle2Btn.Name = "Toggle2"
+toggle2Btn.Size = UDim2.new(0, 50, 0, 25)
+toggle2Btn.Position = UDim2.new(1, -60, 0, 35)
+toggle2Btn.BackgroundColor3 = Color3.fromRGB(60, 60, 80)
+toggle2Btn.BorderSizePixel = 0
+toggle2Btn.Text = "关闭"
+toggle2Btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+toggle2Btn.TextSize = 13
+toggle2Btn.Font = Enum.Font.SourceSans
+toggle2Btn.Parent = contentFrame
+
+local toggle2Corner = Instance.new("UICorner")
+toggle2Corner.CornerRadius = UDim.new(0, 4)
+toggle2Corner.Parent = toggle2Btn
+
+local toggle2State = false
+
+toggle2Btn.MouseButton1Click:Connect(function()
+    toggle2State = not toggle2State
+    toggle2Btn.Text = toggle2State and "开启" or "关闭"
+    toggle2Btn.BackgroundColor3 = toggle2State and Color3.fromRGB(50, 180, 50) or Color3.fromRGB(60, 60, 80)
+    
+    CONFIG.NoclipEnabled = toggle2State
+    if CONFIG.NoclipEnabled then
+        enableNoclip()
+    else
+        disableNoclip()
+    end
+end)
+
+-- ========== 跳跃键拖动功能（动态启用） ==========
+local jumpDragData = {
+    dragging = false,
+    dragStart = nil,
+    startPos = nil,
+}
+
+function enableJumpDrag()
+    -- 移除旧的连接（防止重复）
+    jumpButton.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.Touch and not CONFIG.JumpKeyFixed then
+            jumpDragData.dragging = true
+            jumpDragData.dragStart = input.Position
+            jumpDragData.startPos = jumpButton.Position
+            jumpButton.BackgroundTransparency = 0.1
+            jumpButton.Size = UDim2.new(0, 70, 0, 70)
+        end
+    end)
+
+    jumpButton.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.Touch then
+            jumpDragData.dragging = false
+            jumpButton.BackgroundTransparency = 0.2
+            jumpButton.Size = UDim2.new(0, 80, 0, 80)
+        end
+    end)
+
+    jumpButton.InputChanged:Connect(function(input)
+        if jumpDragData.dragging and input.UserInputType == Enum.UserInputType.Touch and not CONFIG.JumpKeyFixed then
+            local delta = input.Position - jumpDragData.dragStart
+            jumpButton.Position = UDim2.new(
+                jumpDragData.startPos.X.Scale,
+                jumpDragData.startPos.X.Offset + delta.X,
+                jumpDragData.startPos.Y.Scale,
+                jumpDragData.startPos.Y.Offset + delta.Y
+            )
+        end
+    end)
+end
+
+-- ========== 穿墙功能 ==========
+local noclipConnection = nil
+
+function enableNoclip()
+    if noclipConnection then return end
+    
+    noclipConnection = game:GetService("RunService").Heartbeat:Connect(function()
+        local character = player.Character
+        if not character then return end
+        
+        for _, part in ipairs(character:GetDescendants()) do
+            if part:IsA("BasePart") then
+                part.CanCollide = false
+            end
+        end
+    end)
+    
+    -- 处理新加入的部件
+    player.CharacterAdded:Connect(function(char)
+        if CONFIG.NoclipEnabled then
+            task.wait(0.1)
+            for _, part in ipairs(char:GetDescendants()) do
+                if part:IsA("BasePart") then
+                    part.CanCollide = false
+                end
+            end
+        end
+    end)
+    
+    print("🧱 穿墙模式已开启")
+end
+
+function disableNoclip()
+    if noclipConnection then
+        noclipConnection:Disconnect()
+        noclipConnection = nil
+    end
+    
+    -- 恢复碰撞
+    local character = player.Character
+    if character then
+        for _, part in ipairs(character:GetDescendants()) do
+            if part:IsA("BasePart") then
+                part.CanCollide = true
+            end
+        end
+    end
+    
+    print("🧱 穿墙模式已关闭")
+end
+
+-- ========== 角色重生处理 ==========
+player.CharacterAdded:Connect(function()
+    task.wait(0.5)
+    print("🔄 角色重生，所有功能保持")
+    
+    -- 如果穿墙开启，重新应用
+    if CONFIG.NoclipEnabled then
+        enableNoclip()
+    end
+end)
+
+-- ========== 初始化 ==========
+print("✅ 暴力区跳跃已加载！")
+print("📱 固定跳跃键在右侧，GUI在左上角可拖动/缩放/关闭")
