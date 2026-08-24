@@ -1,0 +1,160 @@
+-- 手机可拖动跳跃UI - 注入器版本
+local player = game.Players.LocalPlayer
+local userInputService = game:GetService("UserInputService")
+
+-- ========== 创建UI ==========
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "JumpUI"
+screenGui.ResetOnSpawn = false  -- 死亡重生后保留
+screenGui.Parent = player.PlayerGui
+
+-- 主按钮容器（可拖动）
+local buttonFrame = Instance.new("Frame")
+buttonFrame.Name = "JumpButton"
+buttonFrame.Size = UDim2.new(0, 80, 0, 80)
+buttonFrame.Position = UDim2.new(0.8, -40, 0.5, -40)  -- 屏幕右侧中间
+buttonFrame.BackgroundColor3 = Color3.fromRGB(30, 144, 255)
+buttonFrame.BackgroundTransparency = 0.2
+buttonFrame.BorderSizePixel = 0
+buttonFrame.ClipsDescendants = true
+buttonFrame.Parent = screenGui
+
+-- 圆角
+local corner = Instance.new("UICorner")
+corner.CornerRadius = UDim.new(1, 0)  -- 完全圆形
+corner.Parent = buttonFrame
+
+-- 按钮文字
+local buttonLabel = Instance.new("TextLabel")
+buttonLabel.Size = UDim2.new(1, 0, 1, 0)
+buttonLabel.BackgroundTransparency = 1
+buttonLabel.Text = "⬆"
+buttonLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+buttonLabel.TextSize = 35
+buttonLabel.Font = Enum.Font.SourceSansBold
+buttonLabel.Parent = buttonFrame
+
+-- 点击波纹效果
+local ripple = Instance.new("Frame")
+ripple.Name = "Ripple"
+ripple.Size = UDim2.new(0, 0, 0, 0)
+ripple.Position = UDim2.new(0.5, 0, 0.5, 0)
+ripple.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+ripple.BackgroundTransparency = 0.8
+ripple.BorderSizePixel = 0
+ripple.AnchorPoint = Vector2.new(0.5, 0.5)
+ripple.Parent = buttonFrame
+
+local rippleCorner = Instance.new("UICorner")
+rippleCorner.CornerRadius = UDim.new(1, 0)
+rippleCorner.Parent = ripple
+
+-- ========== 拖动功能 ==========
+local dragging = false
+local dragStartPos = nil
+local frameStartPos = nil
+
+buttonFrame.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
+        dragStartPos = input.Position
+        frameStartPos = buttonFrame.Position
+        
+        -- 按钮按下效果
+        buttonFrame.BackgroundTransparency = 0.1
+        buttonFrame.Size = UDim2.new(0, 70, 0, 70)
+    end
+end)
+
+buttonFrame.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.Touch then
+        dragging = false
+        
+        -- 按钮恢复
+        buttonFrame.BackgroundTransparency = 0.2
+        buttonFrame.Size = UDim2.new(0, 80, 0, 80)
+    end
+end)
+
+buttonFrame.InputChanged:Connect(function(input)
+    if dragging and input.UserInputType == Enum.UserInputType.Touch then
+        local delta = input.Position - dragStartPos
+        buttonFrame.Position = UDim2.new(
+            frameStartPos.X.Scale,
+            frameStartPos.X.Offset + delta.X,
+            frameStartPos.Y.Scale,
+            frameStartPos.Y.Offset + delta.Y
+        )
+    end
+end)
+
+-- ========== 跳跃功能 ==========
+local function performJump()
+    local character = player.Character
+    if not character then return end
+    
+    local humanoid = character:FindFirstChild("Humanoid")
+    local rootPart = character:FindFirstChild("HumanoidRootPart")
+    
+    if not humanoid or not rootPart then return end
+    
+    -- 检查是否在地面
+    if humanoid.FloorMaterial ~= Enum.Material.Air then
+        -- 启用跳跃状态
+        pcall(function()
+            humanoid:SetStateEnabled(Enum.HumanoidStateType.Jumping, true)
+            humanoid.Jump = true
+        end)
+        
+        -- 如果Jump失败，使用Velocity
+        task.wait(0.05)
+        if humanoid.FloorMaterial ~= Enum.Material.Air then
+            rootPart.Velocity = Vector3.new(rootPart.Velocity.X, 55, rootPart.Velocity.Z)
+        end
+        
+        -- 波纹动画
+        local rippleClone = ripple:Clone()
+        rippleClone.Parent = buttonFrame
+        rippleClone.Size = UDim2.new(0, 0, 0, 0)
+        rippleClone.BackgroundTransparency = 0.8
+        
+        local tween = game:GetService("TweenService"):Create(
+            rippleClone,
+            TweenInfo.new(0.4, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+            {Size = UDim2.new(2, 0, 2, 0), BackgroundTransparency = 1}
+        )
+        tween:Play()
+        tween.Completed:Connect(function()
+            rippleClone:Destroy()
+        end)
+    end
+end
+
+-- 按钮点击跳跃
+buttonFrame.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.Touch then
+        -- 延迟执行，防止与拖动冲突
+        task.wait(0.05)
+        if not dragging then
+            performJump()
+        end
+    end
+end)
+
+-- ========== 键盘空格也支持（方便调试） ==========
+userInputService.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+    
+    if input.KeyCode == Enum.KeyCode.Space then
+        performJump()
+    end
+end)
+
+-- ========== 角色重生重新绑定 ==========
+player.CharacterAdded:Connect(function()
+    -- 等待角色完全加载
+    task.wait(0.5)
+    print("🔄 角色重生，跳跃UI仍然可用")
+end)
+
+print("✅ 手机跳跃UI已加载！拖动按钮可调整位置")
